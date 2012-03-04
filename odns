@@ -1,0 +1,196 @@
+#!/opt/local/bin/perl
+
+use strict;
+use warnings;
+
+use CGI;
+use JSON;
+use WWW::Mechanize;
+use Data::Dumper;
+use DateTime;
+use Cwd 'abs_path';
+
+=pod
+
+=head1 odns
+
+	OpenDNS Automated Black/White-list Management(Add/Delete) Utility
+
+
+=over 2
+
+=item Add to Blacklist
+
+	% odns action=a_blacklist domain=facebook.com
+	2012-01-27T17:14:36	SUCCESS - action: a_blacklist, domain: facebook.com (100046) - Domain(s) successfully added to blocklist; will take effect in 3 minutes.
+
+	Add the specified domain to Blacklist
+=cut
+
+=back
+
+=over 2
+
+=item Delete from Blacklist
+
+	% odns action=d_blacklist domain=facebbok.com
+	2012-01-27T17:15:59	SUCCESS - action: d_blacklist, domain: facebook.com (100046) - Domain(s) successfully removed from blocklist; will take effect in 3 minutes.
+
+	Delete the specified domain to Blacklist
+=cut
+
+=back
+
+=over 2
+
+=item Description
+
+	'username' and 'password' info for login to opendns.com can be specified 
+		either in a odns.conf file (same location as 'odns' utility),
+		 or on the commandline.
+
+	Allowed values for 'action' are:
+		a_blacklist		=> Add to Blacklist
+		d_blacklist		=> Delete from Blacklist
+		a_whitelist		=> Add to Whitelist
+		d_whitelist		=> Delete from Whitelist
+
+	'domain' should be valid DNS name
+
+=cut
+
+=back
+
+=over 2
+
+=item Author
+
+	Ramana Mokkapati <mvr707@gmail.com>
+
+=cut
+
+
+my $command_path = abs_path($0);
+
+my $q = CGI->new;
+my $now = DateTime->now(time_zone  => 'US/Pacific');
+
+our %AppConfig = ();
+
+if (-e  "${command_path}.conf") {
+	do "${command_path}.conf";	
+}
+
+$AppConfig{username} = $q->param('username') if ($q->param('username'));
+$AppConfig{password} = $q->param('password') if ($q->param('password'));
+if (!($AppConfig{username} and $AppConfig{password})) {
+	print <<EOF;
+'username' and 'password' be specified!
+EOF
+	exit(1);
+}
+
+$AppConfig{action} = $q->param('action') if ($q->param('action'));
+$AppConfig{domain} = $q->param('domain') if ($q->param('domain'));
+if (!($AppConfig{action} and $AppConfig{domain})) {
+	print <<EOF;
+'action' and 'domain' be specified!
+EOF
+	exit(1);
+}
+
+my $agent = WWW::Mechanize->new(cookie_jar => {});
+
+$agent->get('https://www.opendns.com/auth/');
+$agent->form_number(1);
+$agent->field('username', $AppConfig{username});
+$agent->field('password', $AppConfig{password});
+$agent->submit;
+
+$agent->get('http://dashboard.opendns.com/');
+$agent->follow_link(text_regex => qr/Web Content Filtering/);
+
+#print Dumper($agent->forms());
+#exit(0);
+
+my $current_url = $agent->uri();
+#print "==> $current_url\n";
+my $network_id = (split('/', $current_url))[-2];
+#print "network_id = $network_id\n";
+
+if ($network_id !~ /^\d+$/) {
+	print "Invalid network_id ($network_id)\n";
+	exit(1);
+}
+
+my $json = JSON->new; #->allow_nonref
+
+if ($AppConfig{action} =~ /^[ad]_blacklist$/) {
+	$agent->post('https://dashboard.opendns.com/dashboard_ajax.php',
+		[step1 => 'true', blocked_domain => $AppConfig{domain}, action => 'add_blocked_domain', n => $network_id]);
+
+	my $json_response = $agent->content;
+	my $perl_response = $json->decode($json_response);
+	#print Dumper($perl_response);
+
+	if (!defined($perl_response->{message})) {
+		### We got a confirmation step
+		$agent->post('https://dashboard.opendns.com/dashboard_ajax.php',
+			[n => $network_id, step2 => 'true', blocked_domain => $AppConfig{domain}, action => 'add_blocked_domain']);
+		$json_response = $agent->content;
+		$perl_response = $json->decode($json_response);
+		#print Dumper($perl_response);
+	}
+
+	my $message = $perl_response->{message};
+	$message =~ s/\s+/ /g;
+
+	if ($AppConfig{action} eq 'd_blacklist') {
+		$agent->post('https://dashboard.opendns.com/dashboard_ajax.php',
+			[n => $network_id, "bdomain_id[$AppConfig{domain}]" => $perl_response->{domain_id}, action => 'delete_blocked_domains']);
+
+		my $d_json_response = $agent->content;
+		my $d_perl_response = $json->decode($d_json_response);
+		#print Dumper($d_perl_response);
+
+		$message = $d_perl_response->{message};
+		$message =~ s/\s+/ /g;
+
+		print "$now\tSUCCESS - action: $AppConfig{action}, domain: $AppConfig{domain} ($perl_response->{domain_id}) - ${message}\n";
+	} else {
+		print "$now\tSUCCESS - action: $AppConfig{action}, domain: $AppConfig{domain} ($perl_response->{domain_id}) - ${message}\n";
+	}
+	
+} elsif ($AppConfig{action} =~ /^[ad]_whitelist$/) {
+	$agent->post('https://dashboard.opendns.com/dashboard_ajax.php',
+		[wl_domain => $AppConfig{domain}, action => 'add_whitelist_domain', n => $network_id, ]);
+
+	my $json_response = $agent->content;
+	my $perl_response = $json->decode($json_response);
+	#print Dumper($perl_response);
+
+	my $message = $perl_response->{message};
+	$message =~ s/\s+/ /g;
+
+	if ($AppConfig{action} eq 'd_whitelist') {
+		$agent->post('https://dashboard.opendns.com/dashboard_ajax.php',
+			[n => $network_id, "wldomain_id[$AppConfig{domain}]" => $perl_response->{domain_id}, action => 'delete_whitelist_domains']);
+
+		my $d_json_response = $agent->content;
+		my $d_perl_response = $json->decode($d_json_response);
+		#print Dumper($d_perl_response);
+
+		$message = $d_perl_response->{message};
+		$message =~ s/\s+/ /g;
+
+		print "$now\tSUCCESS - action: $AppConfig{action}, domain: $AppConfig{domain} ($perl_response->{domain_id}) - ${message}\n";
+	} else {
+		print "$now\tSUCCESS - action: $AppConfig{action}, domain: $AppConfig{domain} ($perl_response->{domain_id}) - ${message}\n";
+	}
+} else {
+	print "$now\t UNKNOWN - action: $AppConfig{action}\n";
+}
+
+exit(0);
+
+
