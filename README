@@ -1,0 +1,31 @@
+
+odns
+               OpenDNS Automated Black/White−list Management(Add/Delete) Utility
+
+       Add to Blacklist
+                 % odns action=a_blacklist domain=facebook.com
+                 2012−01−27T17:14:36     SUCCESS − action: a_blacklist, domain: facebook.com (100046) − Domain(s) successfully added to blocklist; will take effect in 3 minutes.
+
+                 Add the specified domain to Blacklist
+
+       Delete from Blacklist
+                 % odns action=d_blacklist domain=facebbok.com
+                 2012−01−27T17:15:59     SUCCESS − action: d_blacklist, domain: facebook.com (100046) − Domain(s) successfully removed from blocklist; will take effect in 3 minutes.
+
+                 Delete the specified domain to Blacklist
+
+       Description
+                 'username' and 'password' info for login to opendns.com can be specified
+                         either in a odns.conf file (same location as 'odns' utility),
+                          or on the commandline.
+
+                 Allowed values for 'action' are:
+                         a_blacklist             => Add to Blacklist
+                         d_blacklist             => Delete from Blacklist
+                         a_whitelist             => Add to Whitelist
+                         d_whitelist             => Delete from Whitelist
+
+                 'domain' should be valid DNS name
+
+       Author
+                 Ramana Mokkapati <mvr707@gmail.com>
