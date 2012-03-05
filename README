@@ -2,6 +2,13 @@
 odns
                OpenDNS Automated Black/White−list Management(Add/Delete) Utility
 
+       Background
+		OpenDNS Basic provides a cool way to control the home nework access restrictions.
+	 	See http://www.youtube.com/watch?v=gxCH4VJ7az8 for a quick start guide.
+
+		The service allows one to manage Blacklist/Whitelist manually via website.
+		The "odns" automation Perl script allows one to schedule the changes.
+
        Add to Blacklist
                  % odns action=a_blacklist domain=facebook.com
                  2012−01−27T17:14:36     SUCCESS − action: a_blacklist, domain: facebook.com (100046) − Domain(s) successfully added to blocklist; will take effect in 3 minutes.
@@ -26,6 +33,13 @@ odns
                          d_whitelist             => Delete from Whitelist
 
                  'domain' should be valid DNS name
+
+       Sample Usage
+		To block facebook.com over the week, making exceptions 7pm-8pm on weekdays and alloing access over the weekend,
+		one would setup a crontab as follows:
+
+		0 19 * * 0-5	(cd /Users/.../odns/; ./odns action=d_blacklist domain=facebook.com)
+		0 20 * * 0-4	(cd /Users/.../odns/; ./odns action=a_blacklist domain=facebook.com)
 
        Author
                  Ramana Mokkapati <mvr707@gmail.com>
