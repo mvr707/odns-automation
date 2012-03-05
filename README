@@ -35,8 +35,8 @@ odns
                  'domain' should be valid DNS name
 
        Sample Usage
-		To block facebook.com over the week, making exceptions 7pm-8pm on weekdays and alloing access over the weekend,
-		one would setup a crontab as follows:
+		To block facebook.com over the week, making exceptions 7pm-8pm on weekdays and 
+		allowing access over the weekend, one would setup a crontab as follows:
 
 		0 19 * * 0-5	(cd /Users/.../odns/; ./odns action=d_blacklist domain=facebook.com)
 		0 20 * * 0-4	(cd /Users/.../odns/; ./odns action=a_blacklist domain=facebook.com)
